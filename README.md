@@ -28,7 +28,7 @@ Relay control is not implemented in the Vera plugin, as I did not need it. I did
 
 ## License ##
 
-Copyright 2-13 - Chris Birkinshaw
+Copyright 2013 - Chris Birkinshaw
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
