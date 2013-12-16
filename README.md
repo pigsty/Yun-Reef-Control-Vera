@@ -1,33 +1,34 @@
 ## Scope ##
 
-This is a very simple Vera plugin for FHT thermostats connected to FHEM. It is assumed that you already have FHEM running on your local network and have set up your FHT devices. 
+This is an Arduino Reef Aquarium Controller that integrates with the Vera home automation gateway.
 
 ## Features ##
 
-It only supports the FHT thermostats and provides the following functions:
+The Arduino Sketch manages:
 
-* Poll FHEM to get actual and desired temperatures for the FHT and update the corresponding Vera device
-* Allow setting of the desired temperature on the FHT device from Vera
+* 2 channels of PWM controlled lighting
+* Temperature monitoring of tank and LED heatsinks
+* Temp controlled LED cooling fan
+* Kalk Mixer (in the day)
+* Kalk delivery (at night)
 
-## Usage ##
+The associated Vera plugin provides integration of the following features into the Vera dashboard:
 
-I didn't follow the model of shared master + child devices for this plugin (room for improvement there). This means you need to create one instance for each thermostat. Give each an IP address (of FHEM) and give the FHEM id as the alt id in Vera.
+* Temperature monitoring (4 devices)
+* PWM dimmer level monitoring (2 devices)
+* Relay control monitoring (4 devices)
 
-## Limitations ##
+## Usage & Limitations ##
 
-This is a pretty basic plugin. Would be nice to do something with the holiday mode but I never got round to it.
+Create the master device in Vera. The plugin will automatically create all child devices.
 
-It could be redesigned with a master device that connects to FHEM and creates child devices in Vera for all configured FHEM devices. I don't really have any compelling reason to spend the time on this at the moment, however. 
+The Arduino sketch is designed to work on the Arduino Yun.
 
-Usage of FHEM in the middle at all is a bit of a hack. Would be better to communicate with FHT devices direct. Maybe using RFXtrx?
-
-## Credits ##
-
-Heavily based on Hugh Evans' "MiOS Plugin for Radio Thermostat Corporation of America, Inc. Wi-Fi Thermostats" (Copyright 2012)
+Relay control is not implemented in the Vera plugin, as I did not need it. I didn't want the risk of the Kalk mixer and delivery relays accidentally being turned on at the same time.
 
 ## License ##
 
-Copyright © 2013 Chris Birkinshaw and others
+Copyright 2-13 - Chris Birkinshaw
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
