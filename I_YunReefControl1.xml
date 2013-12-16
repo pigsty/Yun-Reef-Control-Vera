@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<implementation>
+  <settings>
+		<protocol>raw</protocol>
+	</settings>
+	<functions>
+		local ip_address
+		local DEFAULT_POLL_INTERVAL = 30
+		local dimmers = { 5, 6 }
+    	local relays = { 2, 3, 4, 7 }
+    	local temps = { 1, 2, 3, 4 }
+    	local childDeviceIndex = {}
+    	local SW_SID = "urn:upnp-org:serviceId:SwitchPower1"
+    	local TEMP_SID = "urn:upnp-org:serviceId:TemperatureSensor1"
+    	local DIM_SID = "urn:upnp-org:serviceId:Dimming1"
+    	
+		json = require("json")
+
+		local function call_url(url)
+			local status, data = luup.inet.wget(url)
+			if data then
+				--luup.log("Received response " .. data)
+				local status = string.match(data, '"value":"(%d*%.*%d*)"')
+				if (status) then
+					--luup.log("Status value is " .. status)
+					return status
+				else
+					luup.log("Empty status response")
+				end
+			else
+				luup.log("Could not connect")
+			end			
+		end
+		
+		local function set_output(pin_id, level)
+			local url = 'http://' .. ip_address .. '/arduino/analog/' .. pin_id .. '/' .. level
+			luup.log("Sending command " .. url)
+			local response = call_url(url)
+			return response
+		end
+		
+		local function round(val, decimal)
+  			if (decimal) then
+    			return math.floor( (val * 10^decimal) + 0.5) / (10^decimal)
+  			else
+    			return math.floor(val+0.5)
+  			end
+		end
+
+		function arduinoPoller()
+			luup.log ("Polling Arduino")
+			local base_status_url = 'http://' .. ip_address .. '/data/get/'
+			luup.call_timer("arduinoPoller", 1, DEFAULT_POLL_INTERVAL, "", "")
+			
+			for i, v in ipairs(dimmers) do
+				local status = call_url(base_status_url .. "PIN" .. v)
+				if (status) then
+					local level = round((tonumber(status)/255)*100, 0)
+					--luup.log("Updating Arduino dimmer device " .. childDeviceIndex["PIN"..v] .. " with value " .. level)
+					luup.variable_set(DIM_SID, "LoadLevelStatus", level, childDeviceIndex["PIN"..v])
+				end
+			end
+			for i, v in ipairs(relays) do
+			 	local status = call_url(base_status_url .. "PIN" .. v)
+				if (status) then
+					--luup.log("Updating Arduino relay device " .. childDeviceIndex["PIN"..v] .. " with value " .. status)
+					luup.variable_set(SW_SID, "Status", status, childDeviceIndex["PIN"..v])
+				end
+			end
+			for i, v in ipairs(temps) do
+				local status = call_url(base_status_url .. "TEMP" .. v)
+				if (status) then
+					--luup.log("Updating Arduino temp device " .. childDeviceIndex["TEMP"..v] .. " with value " .. status)
+					luup.variable_set(TEMP_SID, "CurrentTemperature", status, childDeviceIndex["TEMP"..v])
+				end
+			end
+		end
+		
+		function lug_startup(lul_device)
+  		  	luup.log("Startup Arduino #" .. lul_device)
+    			child_devices = luup.chdev.start(lul_device)
+    		
+			for i, v in ipairs(dimmers) do
+				--luup.log("Registering Dimmer id " .. v)
+				luup.chdev.append(lul_device,child_devices, "PIN" .. v, "Arduino Dimmer" .. v, "urn:schemas-upnp-org:device:DimmableLight:1", "D_DimmableLight1.xml", "", "", false)
+    		end
+    		for i, v in ipairs(relays) do
+    			--luup.log("Registering Relay id " .. v)
+				luup.chdev.append(lul_device,child_devices, "PIN" .. v, "Arduino Relay" .. v, "urn:schemas-micasaverde-com:device:Relay:1", "D_Relay1.xml", "", "", false)
+    		end
+    		for i, v in ipairs(temps) do
+    			--luup.log("Registering Temp Sensor id " .. v)
+				luup.chdev.append(lul_device,child_devices, "TEMP" ..v, "Arduino Temp Sensor" .. v, "urn:schemas-micasaverde-com:device:TemperatureSensor:1", "D_TemperatureSensor1.xml", "", "", false)
+    		end
+   			
+   			luup.chdev.sync(lul_device, child_devices)
+
+			for k, v in pairs(luup.devices) do
+	        	if (v.device_num_parent == lul_device) then
+	        	--luup.log("Creating index id " .. v.id .. " with value " .. k)
+				childDeviceIndex[v.id]=k
+        		end
+    	    end
+
+			ip_address = luup.devices[lul_device].ip
+			
+			arduinoPoller()
+		end
+
+	</functions>
+
+	<startup>lug_startup</startup>
+
+	<actionList>
+		<action>
+			<serviceId>urn:upnp-org:serviceId:Dimming1</serviceId>
+			<name>SetLoadLevelTarget</name>
+			<job>
+				local input_value = lul_settings.newLoadlevelTarget
+				local output_value = (input_value /100) * 255
+				local pin_id = string.gsub(luup.devices[lul_device].id, "PIN", "")
+				if set_output(pin_id, output_value) then
+					luup.variable_set("urn:upnp-org:serviceId:Dimming1", "LoadLevelStatus", input_value, lul_device)
+				end	
+			</job>
+		</action>
+		<action>
+			<serviceId>urn:upnp-org:serviceId:SwitchPower1</serviceId>
+			<name>SetTarget</name>
+			<job>
+				local input_value = lul_settings.newTargetValue
+				local pin_id = luup.devices[lul_device].id
+				response = set_output(pin_id, input_value)
+				if (response) then
+					luup.variable_set("urn:upnp-org:serviceId:SwitchPower1", "Status", response, lul_device)
+				end	
+			</job>
+		</action>
+	</actionList>
+
+</implementation>
